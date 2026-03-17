@@ -5,13 +5,10 @@ Desenvolvimento Técnico
 Este plugin foi desenvolvido por Poliana Cursino Betella e Pedro Cursino Betella Gomes como uma solução de geoprocessamento aplicada às rotinas técnicas da Ibiraté Consultoria.
 
 Funcionalidades Principais
-Cálculo de Precisão: Identificação automática de fuso UTM para garantir buffers de 50m exatos, sem distorções de escala.
-
-Conformidade Legal: Parâmetros baseados no Código Florestal Brasileiro (Lei nº 12.651/2012).
-
-Uso Consolidado: Geração dinâmica de áreas de recomposição baseada em Módulos Fiscais.
-
-Ferramentas de Auxílio: Calculadora de MF integrada e link para base de dados da Embrapa.
+- Cálculo de Precisão: Identificação automática de fuso UTM para garantir buffers de 50m, sem distorções de escala.
+- Conformidade Legal: Parâmetros baseados no Código Florestal Brasileiro (Lei nº 12.651/2012).
+- Uso Consolidado: Geração dinâmica de áreas de recomposição baseada em Módulos Fiscais.
+- Ferramentas de Auxílio: Calculadora de Módulos Fiscais integrada e link para base de dados da Embrapa.
 
 Instalação
 Copie a pasta do plugin para o diretório de plugins do QGIS.
