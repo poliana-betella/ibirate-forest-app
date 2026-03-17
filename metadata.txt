@@ -1,0 +1,14 @@
+[general]
+name=Ibiraté - APP Analises
+qgisMinimumVersion=3.22
+description=Ferramenta automatizada para buffers de APP e faixas de recomposição (Uso Consolidado) conforme o Código Florestal Brasileiro (Lei n. 12.651/12).
+version=1.2
+author=Poliana Cursino Betella | Pedro Cursino Betella Gomes
+email=betella.poliana@gmail.com | pedro.cursino.gomes@gmail.com
+homepage=https://www.ibirate.com.br/
+tracker=https://github.com/poliana-betella/app_compliance/issues
+repository=https://github.com/poliana-betella/app_compliance
+icon=icon.png
+category=Vector
+tags=app, forest code, environmental, geoprocessing, compliance
+experimental=True
