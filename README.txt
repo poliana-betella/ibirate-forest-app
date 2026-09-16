@@ -23,5 +23,5 @@ Resultado: O plugin gerará automaticamente as camadas de APP, áreas remanescen
 
 Contato dos Desenvolvedores:
 Poliana Cursino Betella | betella.poliana@gmail.com
-Pedro Cursino Betella Gomes | pedro.cursino.betella.gomes@gmail.com
+Pedro Cursino Betella Gomes | pedro.cursino.gomes@gmail.com
 www.ibirate.com.br
