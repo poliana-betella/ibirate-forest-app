@@ -27,6 +27,10 @@ class AppCompliance:
     def unload(self):
         self.iface.removePluginVectorMenu("Ibiraté", self.action)
         self.iface.removeToolBarIcon(self.action)
+        if self.dock:
+            self.iface.removeDockWidget(self.dock)
+            self.dock.deleteLater()
+            self.dock = None
 
     def run(self):
         if not self.dock:

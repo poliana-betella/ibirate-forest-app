@@ -7,7 +7,7 @@ betella.poliana@gmail.com | pedro.cursino.gomes@gmail.com
 
 from qgis.PyQt import QtWidgets, QtCore, QtGui
 from qgis.gui import QgsMapLayerComboBox
-from qgis.core import QgsMapLayerProxyModel, QgsWkbTypes, QgsMapLayer
+from qgis.core import QgsMapLayerProxyModel, QgsWkbTypes, QgsMapLayer, Qgis
 from .processor import ForestRules, SpatialEngine 
 
 class AppComplianceDock(QtWidgets.QDockWidget):
@@ -50,7 +50,6 @@ class AppComplianceDock(QtWidgets.QDockWidget):
         lay_rules.addWidget(self.combo_largura)
 
         self.check_consolidado = QtWidgets.QCheckBox("Analisar Uso Consolidado")
-        self.check_consolidado.toggled.connect(self._toggle_width_selector)
         lay_rules.addWidget(self.check_consolidado)
 
         self.container_cons = QtWidgets.QWidget()
@@ -59,6 +58,28 @@ class AppComplianceDock(QtWidgets.QDockWidget):
         self.combo_mf.addItems(["Até 1 MF", "1 a 2 MF", "2 a 4 MF", "4 a 10 MF", "> 10 MF"])
         lay_cons.addWidget(QtWidgets.QLabel("Tamanho do imóvel em Módulos Fiscais (MF):"))
         lay_cons.addWidget(self.combo_mf)
+
+        # Largura exata: so e necessaria acima de 4 MF quando a regra e
+        # "metade da largura, min. 30 m e max. 100 m" (Decreto 7.830/2012, art. 19, par. 4, II)
+        self.container_largura = QtWidgets.QWidget()
+        lay_larg = QtWidgets.QVBoxLayout(self.container_largura)
+        lay_larg.setContentsMargins(0, 0, 0, 0)
+        self.label_largura_exata = QtWidgets.QLabel("Largura do curso d'água (m) — recomposição = metade da largura (mín. 30 m, máx. 100 m):")
+        self.label_largura_exata.setWordWrap(True)
+        self.spin_largura = QtWidgets.QDoubleSpinBox()
+        self.spin_largura.setRange(0, 100000)
+        self.spin_largura.setDecimals(1)
+        self.spin_largura.setSuffix(" m")
+        lay_larg.addWidget(self.label_largura_exata)
+        lay_larg.addWidget(self.spin_largura)
+        lay_cons.addWidget(self.container_largura)
+        self.label_faixa_cons = QtWidgets.QLabel("")
+        self.label_faixa_cons.setStyleSheet("color: #2e7d32; font-weight: bold;")
+        lay_cons.addWidget(self.label_faixa_cons)
+
+        self.combo_mf.currentIndexChanged.connect(self._update_cons_preview)
+        self.combo_largura.currentIndexChanged.connect(self._on_width_category_changed)
+        self.spin_largura.valueChanged.connect(self._update_cons_preview)
 
         # Calculadora auxiliar
         calc_box = QtWidgets.QGroupBox("Auxílio: Calculadora de MF")
@@ -88,10 +109,31 @@ class AppComplianceDock(QtWidgets.QDockWidget):
         self.btn_run.clicked.connect(self._execute)
         self.layout.addWidget(self.btn_run)
         self.layout.addStretch()
+        self._on_width_category_changed()
 
-    def _toggle_width_selector(self, checked):
-        self.combo_largura.setDisabled(checked)
-        if checked: self.combo_largura.setCurrentIndex(0)
+    def _needs_exact_width(self):
+        mf = self.combo_mf.currentIndex()
+        w = self.combo_largura.currentIndex()
+        return mf in (3, 4) and w != 0
+
+    def _on_width_category_changed(self, *args):
+        lo, hi = ForestRules.width_range(self.combo_largura.currentIndex())
+        if not (lo <= self.spin_largura.value() <= hi):
+            self.spin_largura.setValue(lo)
+        self._update_cons_preview()
+
+    def _cons_river_distance(self):
+        return ForestRules.get_consolidado_dist_river(
+            self.combo_mf.currentIndex(),
+            self.combo_largura.currentIndex(),
+            self.spin_largura.value(),
+        )
+
+    def _update_cons_preview(self, *args):
+        self.container_largura.setVisible(self._needs_exact_width())
+        self.label_faixa_cons.setText(
+            f"Faixa de recomposição no curso d'água: {self._cons_river_distance():.1f} m | nascente: 15 m"
+        )
 
     def _auto_fill_selected(self):
         selected = self.iface.layerTreeView().selectedLayers()
@@ -107,9 +149,40 @@ class AppComplianceDock(QtWidgets.QDockWidget):
         if mf > 0: self.label_res_mf.setText(f"Resultado: {(area/mf):.2f} MF")
 
     def _execute(self):
+        bar = self.iface.messageBar()
         rio, nascente, imovel = self.combo_rio.currentLayer(), self.combo_nascente.currentLayer(), self.combo_imovel.currentLayer()
-        if not imovel: return
+        if not imovel:
+            bar.pushMessage("Ibiraté", "Selecione a camada de Limite do Imóvel.", level=Qgis.Warning, duration=6)
+            return
+        if not rio and not nascente:
+            bar.pushMessage("Ibiraté", "Selecione ao menos uma camada de Cursos d'Água ou de Nascentes.", level=Qgis.Warning, duration=6)
+            return
+
         dist_app = ForestRules.get_app_dist(self.combo_largura.currentIndex())
         use_cons = self.check_consolidado.isChecked()
-        mf_idx = self.combo_mf.currentIndex() if use_cons else None
-        SpatialEngine.run_analysis(rio, nascente, imovel, dist_app, use_cons, mf_idx)
+        dist_cons = None
+        if use_cons:
+            if self._needs_exact_width():
+                lo, hi = ForestRules.width_range(self.combo_largura.currentIndex())
+                if not (lo <= self.spin_largura.value() <= hi):
+                    bar.pushMessage("Ibiraté", f"A largura informada ({self.spin_largura.value():.1f} m) não corresponde à faixa selecionada ({self.combo_largura.currentText()}).", level=Qgis.Warning, duration=8)
+                    return
+            dist_cons = self._cons_river_distance()
+
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        try:
+            layers, calc_crs = SpatialEngine.run_analysis(rio, nascente, imovel, dist_app, use_cons, dist_cons)
+        except Exception as e:
+            QtWidgets.QApplication.restoreOverrideCursor()
+            bar.pushMessage("Ibiraté - erro na análise", str(e), level=Qgis.Critical, duration=0)
+            return
+        QtWidgets.QApplication.restoreOverrideCursor()
+
+        resumo = f"APP: {dist_app:.0f} m (rio) / 50 m (nascente)"
+        if use_cons:
+            resumo += f" | Uso consolidado: {dist_cons:.1f} m (rio) / 15 m (nascente)"
+        bar.pushMessage(
+            "Ibiraté",
+            f"{len(layers)} camadas geradas. {resumo}. Cálculo em {calc_crs.authid()} ({calc_crs.description()}).",
+            level=Qgis.Success, duration=10,
+        )
